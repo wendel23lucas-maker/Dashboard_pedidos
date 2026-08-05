@@ -345,14 +345,27 @@
 
             /* Conteúdo principal ocupa a tela toda, abaixo da topbar */
             .main-content { padding: 12px; padding-top: 66px; width: 100%; }
-            #mobileFilterBtn{display:block;}
 
             .upload-card { padding: 32px 24px; min-width: 0; width: 88vw; }
             .upload-card h2 { font-size: 1.4rem; }
 
-            .filter-bar { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px; display:none; }
-            .filter-bar.mobile-open{display:grid;}
-            #mobileFilterBtn{display:block;width:100%;margin-bottom:10px;padding:10px;border:1px solid var(--border-color);background:#0a111a;color:#fff;border-radius:8px;}
+            /* Botão de filtros na topbar acende quando algum filtro está ativo */
+            #mobileFilterBtn.has-active { border-color: var(--brand-teal); color: var(--brand-teal); background: rgba(8,224,190,0.12); }
+
+            /* Aba/gaveta de filtros: fica ancorada sob a topbar e desliza por cima do conteúdo */
+            #filterBackdrop { position: fixed; inset: 0; top: 54px; background: rgba(0,0,0,0.55); z-index: 470; display: none; }
+            #filterBackdrop.show { display: block; }
+            .filter-bar {
+                position: fixed; top: 54px; left: 0; right: 0; z-index: 480;
+                grid-template-columns: repeat(2, 1fr); gap: 10px;
+                margin: 0; border-radius: 0 0 16px 16px; border-top: none;
+                max-height: 0; opacity: 0; overflow: hidden; padding: 0 14px; pointer-events: none;
+                transition: max-height 0.28s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.2s ease, padding 0.28s ease;
+            }
+            .filter-bar.mobile-open {
+                max-height: 75vh; opacity: 1; overflow-y: auto; padding: 16px 14px 18px; pointer-events: auto;
+                box-shadow: 0 15px 40px rgba(0,0,0,0.7);
+            }
             .filter-bar .filter-group[style*="span 2"] { grid-column: span 2; }
 
             .kpi-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -393,8 +406,10 @@
     <div class="mobile-topbar">
         <button class="hamburger-btn" onclick="mobileToggleSidebar()" title="Abrir menu">☰</button>
         <span class="mobile-title">PLASTICOMP · Pedidos</span>
+        <button class="hamburger-btn" id="mobileFilterBtn" onclick="toggleMobileFilters()" title="Filtros" style="margin-left:auto;">🔎</button>
     </div>
     <div id="mobileBackdrop" onclick="mobileToggleSidebar()"></div>
+    <div id="filterBackdrop" onclick="toggleMobileFilters()"></div>
     <aside class="sidebar" id="sidebar">
         <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Recolher menu">‹</button>
         <div class="sidebar-header">
@@ -422,7 +437,6 @@
     </aside>
 
     <main class="main-content">
-        <button id="mobileFilterBtn" onclick="toggleMobileFilters()" style="display:none">🔎 Filtros</button>
         <div class="filter-bar" id="filterBar">
             <div class="filter-group" style="grid-column: span 2;">
                 <label>Busca por Item</label>
@@ -585,15 +599,30 @@
 
 function toggleMobileFilters(){
  const fb=document.getElementById('filterBar');
+ const bd=document.getElementById('filterBackdrop');
  if(fb) fb.classList.toggle('mobile-open');
+ if(bd) bd.classList.toggle('show');
+}
+window.closeMobileFilters = function(){
+ const fb=document.getElementById('filterBar');
+ const bd=document.getElementById('filterBackdrop');
+ if(fb) fb.classList.remove('mobile-open');
+ if(bd) bd.classList.remove('show');
+}
+// Acende o botão de filtros na topbar quando algum filtro estiver preenchido
+window.updateMobileFilterBtnState = function(){
+ const btn=document.getElementById('mobileFilterBtn');
+ if(!btn) return;
+ const item=document.getElementById('fItem'), start=document.getElementById('fStart'), end=document.getElementById('fEnd'),
+       status=document.getElementById('fStatus'), sort=document.getElementById('fSortMatriz'), neg=document.getElementById('fNegEstoque');
+ const active = (item && item.value) || (start && start.value) || (end && end.value) ||
+                (status && status.value !== 'all') || (sort && sort.value !== 'none') || (neg && neg.checked);
+ btn.classList.toggle('has-active', !!active);
 }
 const _sw=switchTab;
 switchTab=function(id,btn){
  _sw(id,btn);
- if(window.innerWidth<=860){
-   const fb=document.getElementById('filterBar');
-   if(fb) fb.classList.remove('mobile-open');
- }
+ if(window.innerWidth<=860) closeMobileFilters();
 }
 
 
@@ -805,6 +834,7 @@ switchTab=function(id,btn){
     }
 
     function run() {
+        if (window.updateMobileFilterBtnState) updateMobileFilterBtnState();
         const query = document.getElementById('fItem').value.toLowerCase();
         const start = document.getElementById('fStart').value, end = document.getElementById('fEnd').value;
         const statusFiltro = document.getElementById('fStatus').value;
