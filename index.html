@@ -4,45 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PLASTICOMP | GESTÃO DE PEDIDOS</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
-// Mobile-only Chart.js tuning
-function applyMobileChartOptions(){
- if(window.innerWidth>860||!charts)return;
- Object.values(charts).forEach(ch=>{
-   if(!ch||!ch.options)return;
-   ch.options.maintainAspectRatio=false;
-   ch.options.layout={padding:8};
-   ch.options.plugins=ch.options.plugins||{};
-   if(ch.options.plugins.legend){
-      ch.options.plugins.legend.position='bottom';
-      ch.options.plugins.legend.labels=ch.options.plugins.legend.labels||{};
-      ch.options.plugins.legend.labels.boxWidth=10;
-      ch.options.plugins.legend.labels.font={size:10};
-   }
-   ch.options.plugins.tooltip=ch.options.plugins.tooltip||{};
-   ch.options.plugins.tooltip.bodyFont={size:12};
-   ch.options.plugins.tooltip.titleFont={size:12};
-   if(ch.options.scales){
-     Object.values(ch.options.scales).forEach(s=>{
-       s.ticks=s.ticks||{};
-       s.ticks.font={size:10};
-       s.ticks.maxRotation=0;
-       s.ticks.autoSkip=true;
-       s.ticks.maxTicksLimit=5;
-     });
-   }
-   ch.resize();
-   ch.update('none');
- });
-}
-window.addEventListener('resize',applyMobileChartOptions);
-const __oldRun=run;
-run=function(){
-  __oldRun();
-  setTimeout(applyMobileChartOptions,50);
-};
-
-</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -383,16 +345,17 @@ run=function(){
 
             /* Conteúdo principal ocupa a tela toda, abaixo da topbar */
             .main-content { padding: 12px; padding-top: 66px; width: 100%; }
+            #mobileFilterBtn{display:block;}
 
             .upload-card { padding: 32px 24px; min-width: 0; width: 88vw; }
             .upload-card h2 { font-size: 1.4rem; }
 
-            .filter-bar { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px; }
+            .filter-bar { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px; display:none; }
+            .filter-bar.mobile-open{display:grid;}
+            #mobileFilterBtn{display:block;width:100%;margin-bottom:10px;padding:10px;border:1px solid var(--border-color);background:#0a111a;color:#fff;border-radius:8px;}
             .filter-bar .filter-group[style*="span 2"] { grid-column: span 2; }
 
             .kpi-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-            #tab-bi canvas{width:100% !important;height:100% !important;}
-            #tab-bi .fullscreen-btn{display:none;}
             .kpi-card { padding: 12px 14px; }
             .kpi-card div { font-size: 1.35rem; }
             .kpi-card small { font-size: 0.6rem; }
@@ -401,7 +364,7 @@ run=function(){
             #tab-bi > div[style*="grid-template-columns: 1fr 1fr"] {
                 grid-template-columns: 1fr !important;
             }
-            #tab-bi .expandable-container[style*="height: 320px"] { height: 330px !important; }
+            #tab-bi .expandable-container[style*="height: 320px"] { height: 240px !important; }
             #tab-bi .expandable-container[style*="grid-column: span 2"] { grid-column: span 1 !important; }
 
             .expandable-container[style*="height: 70vh"] { height: 62vh !important; resize: none; }
@@ -459,7 +422,8 @@ run=function(){
     </aside>
 
     <main class="main-content">
-        <div class="filter-bar">
+        <button id="mobileFilterBtn" onclick="toggleMobileFilters()" style="display:none">🔎 Filtros</button>
+        <div class="filter-bar" id="filterBar">
             <div class="filter-group" style="grid-column: span 2;">
                 <label>Busca por Item</label>
                 <input type="text" id="fItem" placeholder="Procurar..." oninput="run()">
@@ -618,6 +582,20 @@ run=function(){
         document.getElementById('mobileBackdrop').classList.remove('show');
     };
     window.addEventListener('resize', () => { if (window.innerWidth > 860) mobileCloseSidebar(); });
+
+function toggleMobileFilters(){
+ const fb=document.getElementById('filterBar');
+ if(fb) fb.classList.toggle('mobile-open');
+}
+const _sw=switchTab;
+switchTab=function(id,btn){
+ _sw(id,btn);
+ if(window.innerWidth<=860){
+   const fb=document.getElementById('filterBar');
+   if(fb) fb.classList.remove('mobile-open');
+ }
+}
+
 
     function updateObs(it, val) {
         obsStorage[it] = val;
@@ -873,18 +851,18 @@ run=function(){
             }
         });
 
-        // Ordenação da matriz por Δ ESTOQUE, conforme seleção do usuário
+        // Ordenação da matriz por Δ ESTQ, conforme seleção do usuário
         const sortMatriz = document.getElementById('fSortMatriz') ? document.getElementById('fSortMatriz').value : 'none';
         if (sortMatriz === 'asc') matrizRows.sort((a, b) => a.deltaEstoque - b.deltaEstoque);
         else if (sortMatriz === 'desc') matrizRows.sort((a, b) => b.deltaEstoque - a.deltaEstoque);
         let b = matrizRows.map(r => r.html).join('');
 
         // Cabeçalho: dia fica verde quando nenhum item daquele dia está crítico (e existe pelo menos um pedido no dia)
-        let h = `<tr><th class="sticky-col">ITEM</th><th>ESTOQUE</th><th>OP's</th>` + fDates.map((d, idx) => {
+        let h = `<tr><th class="sticky-col">ITEM</th><th>ESTQ</th><th>OP's</th>` + fDates.map((d, idx) => {
             const temPedido = colTotals[idx].q > 0;
             const corDia = temPedido ? (colHasCritico[idx] ? '#ff3366' : colHasAmarelo[idx] ? '#ffc107' : '#00e676') : '';
             return `<th style="${corDia ? `color:${corDia};` : ''}">${d.split('-').reverse().slice(0,2).join('/')}</th>`;
-        }).join('') + `<th>Δ ESTOQUE</th><th>Δ OP</th><th>OBSERVAÇÃO</th></tr>`;
+        }).join('') + `<th>Δ ESTQ</th><th>Δ OP</th><th>OBS</th></tr>`;
         document.getElementById('mHead').innerHTML = h;
         document.getElementById('mBody').innerHTML = b;
         document.getElementById('mFoot').innerHTML = `<tr class="row-total-footer"><td class="sticky-col">TOTAL DIA</td><td>-</td><td>-</td>${colTotals.map(t => `<td>${fmtNum(t.q)} | ${fmtMoeda(t.v)}</td>`).join('')}<td>-</td><td>-</td><td>-</td></tr>`;
@@ -999,9 +977,9 @@ run=function(){
 
         pHead.innerHTML = `<tr>
             <th>PRIORIDADE</th><th>PRIMEIRA DATA</th><th>CÉLULA</th><th class="sticky-col">ITEM</th>
-            <th>ESTOQUE</th><th>OPs INFO</th><th>DEMANDA 10 DIAS</th><th>SALDO ESTOQUE</th>
+            <th>ESTQ</th><th>OPs INFO</th><th>DEMANDA 10 DIAS</th><th>SALDO ESTQ</th>
             <th>NECESSIDADE PRODUZIR</th><th>PEÇAS/HORA</th><th>HORAS NECESSÁRIAS</th>
-            <th>MDO</th><th>DIAS</th><th>VALOR DEMANDA</th><th>OBSERVAÇÃO</th>
+            <th>MDO</th><th>DIAS</th><th>VALOR DEMANDA</th><th>OBS</th>
         </tr>`;
 
         const linhas = getProgramacaoLinhas();
