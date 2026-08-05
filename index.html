@@ -490,7 +490,7 @@
         </div>
 
         <div id="tab-lista" class="tab-content">
-            <div class="expandable-container" style="height: 70vh;"><button class="fullscreen-btn" onclick="toggleFS(this.parentElement)">⛶</button><div class="table-wrapper"><table id="lTable"><thead id="lHead"></thead><tbody id="lBody"></tbody></table></div></div>
+            <div class="expandable-container" style="height: 70vh;"><button class="fullscreen-btn" onclick="toggleFS(this.parentElement)">⛶</button><div class="table-wrapper"><table id="lTable"><thead id="lHead"></thead><tbody id="lBody"></tbody><tfoot id="lFoot"></tfoot></table></div></div>
         </div>
 
         <div id="tab-programacao" class="tab-content">
@@ -813,6 +813,67 @@ switchTab=function(id,btn){
         return String(getField(row, ['Item final', 'Itemfinal', 'Item', 'cod_item']) || 'N/A').trim();
     }
 
+    // Mapa de nomes "crus" (vindos do ERP/planilha) para títulos amigáveis na Tabela Geral.
+    // Comparação por texto normalizado (sem acento, minúsculo), então funciona com "Item_Final", "ITEM FINAL", etc.
+    const COLUNA_TITULOS = {
+        'item final': 'ITEM',
+        'itemfinal': 'ITEM',
+        'item': 'ITEM',
+        'cod_item': 'ITEM',
+        'codigo': 'ITEM',
+        'cod item': 'ITEM',
+        'descricao': 'DESCRIÇÃO',
+        'descricao item': 'DESCRIÇÃO',
+        'des_item': 'DESCRIÇÃO',
+        'cliente': 'CLIENTE',
+        'nome cliente': 'CLIENTE',
+        'pedido': 'PEDIDO',
+        'numero pedido': 'PEDIDO',
+        'nr pedido': 'PEDIDO',
+        'data': 'DATA ENTREGA',
+        'data entrega': 'DATA ENTREGA',
+        'dt entrega': 'DATA ENTREGA',
+        'prz_entrega': 'DATA ENTREGA',
+        'dt_entrega': 'DATA ENTREGA',
+        'dt pedido': 'DATA PEDIDO',
+        'dt_pedido': 'DATA PEDIDO',
+        'data pedido': 'DATA PEDIDO',
+        'demanda': 'QTDE VENDAS',
+        'soma de qtd_vendas': 'QTDE VENDAS',
+        'qtd_vendas': 'QTDE VENDAS',
+        'qtd vendas': 'QTDE VENDAS',
+        'quantidade': 'QTDE VENDAS',
+        'qtd': 'QTDE VENDAS',
+        'valor total': 'VALOR TOTAL',
+        'soma de valor total': 'VALOR TOTAL',
+        'valor_vendas': 'VALOR TOTAL',
+        'valor': 'VALOR TOTAL',
+        'total': 'VALOR TOTAL',
+        'estoque': 'ESTOQUE',
+        'saldo': 'ESTOQUE',
+        "op's": "OP's",
+        'ops': "OP's",
+        'ordens': "OP's",
+        'celula': 'CÉLULA',
+        'segmento': 'SEGMENTO'
+    };
+    function friendlyColName(c) {
+        const key = normalizeText(c);
+        if (COLUNA_TITULOS[key]) return COLUNA_TITULOS[key];
+        // fallback: "cod_item_pai" -> "COD ITEM PAI"
+        return String(c).replace(/[_\.]+/g, ' ').trim().toUpperCase();
+    }
+    function isDateCol(c) {
+        const key = normalizeText(c);
+        return key.includes('data') || key.includes('dt_') || key.startsWith('dt ') || key.includes('prz_entrega') || key.includes('entrega');
+    }
+    function fmtDataBR(dtRaw) {
+        const iso = parseExcelDate(dtRaw); // yyyy-mm-dd
+        if (!iso) return (dtRaw === undefined || dtRaw === null) ? '' : String(dtRaw);
+        const [y, m, d] = iso.split('-');
+        return `${d}/${m}/${y}`;
+    }
+
     function processData() {
         matrix = {}; itemInfo = {}; const dSet = new Set(), iSet = new Set();
         rawData.forEach(r => {
@@ -900,10 +961,11 @@ switchTab=function(id,btn){
         // TABELA GERAL ORIGINAL MANTIDA
         if (rawData.length) {
             const cols = Object.keys(rawData[0]);
-            document.getElementById('lHead').innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join('')}<th>SALDO DINÂMICO</th><th>OBS</th></tr>`;
+            document.getElementById('lHead').innerHTML = `<tr>${cols.map(c => `<th>${friendlyColName(c)}</th>`).join('')}<th>SALDO DINÂMICO</th><th>OBS</th></tr>`;
             
             let tempStock = JSON.parse(JSON.stringify(itemInfo));
             let htmlGeral = "";
+            let totalQtdGeral = 0, totalValorGeral = 0;
 
             rawData.forEach(r => {
                 const it = getItemFinal(r);
@@ -925,17 +987,28 @@ switchTab=function(id,btn){
                 else if(statusFiltro === 'ok') matchStatus = (rowClass === "");
 
                 if (matchBusca && matchData && matchStatus) {
+                    totalQtdGeral += dem;
+                    totalValorGeral += getValorTotal(r);
                     const currentObs = obsStorage[it] || "";
                     htmlGeral += `<tr class="${rowClass}">${cols.map(c => {
                         let val = r[c];
-                        if (c.toLowerCase().includes('valor') || c.toLowerCase().includes('preço')) val = typeof val === 'number' ? fmtMoeda(val) : val;
-                        else if (typeof val === 'number' && !c.toLowerCase().includes('data')) val = fmtNum(val);
+                        if (isDateCol(c)) val = fmtDataBR(val);
+                        else if (c.toLowerCase().includes('valor') || c.toLowerCase().includes('preço')) val = typeof val === 'number' ? fmtMoeda(val) : val;
+                        else if (typeof val === 'number') val = fmtNum(val);
                         else if (val instanceof Date) val = val.toLocaleDateString('pt-BR');
                         return `<td>${val}</td>`;
                     }).join('')}<td style="font-weight:bold; color:${saldoLinha < 0 ? '#ff3366':'#00e676'}">${fmtNum(saldoLinha)}</td><td><input type="text" class="input-obs" value="${currentObs}" oninput="updateObs('${it}', this.value)"></td></tr>`;
                 }
             });
             document.getElementById('lBody').innerHTML = htmlGeral;
+            const footCells = cols.map((c, idx) => {
+                const key = normalizeText(c);
+                if (idx === 0) return `<td>TOTAL GERAL</td>`;
+                if (['demanda','soma de qtd_vendas','qtd_vendas','qtd vendas','quantidade','qtd'].includes(key)) return `<td>${fmtNum(totalQtdGeral)}</td>`;
+                if (['valor total','soma de valor total','valor_vendas','valor','total'].includes(key)) return `<td>${fmtMoeda(totalValorGeral)}</td>`;
+                return `<td>-</td>`;
+            }).join('');
+            document.getElementById('lFoot').innerHTML = `<tr class="row-total-footer">${footCells}<td>-</td><td>-</td></tr>`;
         }
         document.getElementById('kpiV').innerText = fmtMoeda(tV); document.getElementById('kpiQ').innerText = fmtNum(tQ);
         document.getElementById('kpiOk').innerText = nOk; document.getElementById('kpiCrit').innerText = nCrit;
