@@ -4,7 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PLASTICOMP | GESTÃO DE PEDIDOS</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
+// Mobile-only Chart.js tuning
+function applyMobileChartOptions(){
+ if(window.innerWidth>860||!charts)return;
+ Object.values(charts).forEach(ch=>{
+   if(!ch||!ch.options)return;
+   ch.options.maintainAspectRatio=false;
+   ch.options.layout={padding:8};
+   ch.options.plugins=ch.options.plugins||{};
+   if(ch.options.plugins.legend){
+      ch.options.plugins.legend.position='bottom';
+      ch.options.plugins.legend.labels=ch.options.plugins.legend.labels||{};
+      ch.options.plugins.legend.labels.boxWidth=10;
+      ch.options.plugins.legend.labels.font={size:10};
+   }
+   ch.options.plugins.tooltip=ch.options.plugins.tooltip||{};
+   ch.options.plugins.tooltip.bodyFont={size:12};
+   ch.options.plugins.tooltip.titleFont={size:12};
+   if(ch.options.scales){
+     Object.values(ch.options.scales).forEach(s=>{
+       s.ticks=s.ticks||{};
+       s.ticks.font={size:10};
+       s.ticks.maxRotation=0;
+       s.ticks.autoSkip=true;
+       s.ticks.maxTicksLimit=5;
+     });
+   }
+   ch.resize();
+   ch.update('none');
+ });
+}
+window.addEventListener('resize',applyMobileChartOptions);
+const __oldRun=run;
+run=function(){
+  __oldRun();
+  setTimeout(applyMobileChartOptions,50);
+};
+
+</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -353,6 +391,8 @@
             .filter-bar .filter-group[style*="span 2"] { grid-column: span 2; }
 
             .kpi-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            #tab-bi canvas{width:100% !important;height:100% !important;}
+            #tab-bi .fullscreen-btn{display:none;}
             .kpi-card { padding: 12px 14px; }
             .kpi-card div { font-size: 1.35rem; }
             .kpi-card small { font-size: 0.6rem; }
@@ -361,7 +401,7 @@
             #tab-bi > div[style*="grid-template-columns: 1fr 1fr"] {
                 grid-template-columns: 1fr !important;
             }
-            #tab-bi .expandable-container[style*="height: 320px"] { height: 240px !important; }
+            #tab-bi .expandable-container[style*="height: 320px"] { height: 330px !important; }
             #tab-bi .expandable-container[style*="grid-column: span 2"] { grid-column: span 1 !important; }
 
             .expandable-container[style*="height: 70vh"] { height: 62vh !important; resize: none; }
